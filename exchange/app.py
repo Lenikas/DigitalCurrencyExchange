@@ -1,5 +1,6 @@
 from decimal import Decimal, getcontext
 from typing import Any
+from random import uniform
 
 from exchange.db import ExchangeRate, User, UserCurrency, create_session
 from exchange.exception import UserNotFound
@@ -14,13 +15,21 @@ def handle_not_found_user(error: Any) -> Any:
 
 
 def create_market():
-    lst = ["btc", "eth", "xpr", "trx", "ltc"]
+    lst = ['btc', 'eth', 'xpr', 'trx', 'ltc']
     price = 10
     with create_session() as session:
         for name in lst:
             currency: ExchangeRate = ExchangeRate(name, str(price), str(price + 2))
             session.add(currency)
             price += 10
+
+
+def change_exchange_rate():
+    with create_session() as session:
+        percent = uniform(0.9, 1.1)
+        for currency in session.query(ExchangeRate):
+            currency.sold_price = Decimal(currency.sold_price) * percent
+            currency.buy_price = Decimal(currency.buy_price) * percent
 
 
 @server.route('/market/api/v1.0/registration', methods=['POST'])
@@ -30,14 +39,14 @@ def registration() -> Any:
             jsonify({'ERROR': 'Invalid data, please give username'}),
             400,
         )
-    name: str = request.json.get("name")
+    name: str = request.json.get('name')
     with create_session() as session:
-        user: User = User(request.json.get("name"))
+        user: User = User(request.json.get('name'))
         session.add(user)
         session.commit()
         portfolio: UserCurrency = UserCurrency(user.id)
         session.add(portfolio)
-    return jsonify({"REGISTRATION": name})
+    return jsonify({'REGISTRATION': name})
 
 
 @server.route('/market/api/v1.0/<identification>/get_ye', methods=['GET'])
@@ -45,8 +54,8 @@ def get_count_ye(identification: str) -> Any:
     with create_session() as session:
         user = session.query(User).filter(User.id == int(identification)).first()
         if user is not None:
-            return jsonify({"COUNT_YE": user.ye})
-        raise UserNotFound("User not found")
+            return jsonify({'COUNT_YE': user.ye})
+        raise UserNotFound('User not found')
 
 
 @server.route('/market/api/v1.0/<identification>/get_portfolio', methods=['GET'])
@@ -60,16 +69,16 @@ def get_portfolio(identification: str) -> Any:
         if portfolio is not None:
             return jsonify(
                 {
-                    "PORTFOLIO": {
-                        "btc": portfolio.btc,
-                        "eth": portfolio.eth,
-                        "xpr": portfolio.xpr,
-                        "trx": portfolio.trx,
-                        "ltc": portfolio.ltc,
+                    'PORTFOLIO': {
+                        'btc': portfolio.btc,
+                        'eth': portfolio.eth,
+                        'xpr': portfolio.xpr,
+                        'trx': portfolio.trx,
+                        'ltc': portfolio.ltc,
                     }
                 }
             )
-        raise UserNotFound("User not found")
+        raise UserNotFound('User not found')
 
 
 @server.route('/market/api/v1.0/get_exchange_rate_all', methods=['GET'])
@@ -77,22 +86,22 @@ def get_exchange_rate_all() -> Any:
     result: dict = {}
     with create_session() as session:
         for currency in session.query(ExchangeRate):
-            result[currency.name] = "sold price : {0}, buy price : {1}".format(
+            result[currency.name] = 'sold price : {0}, buy price : {1}'.format(
                 currency.sold_price, currency.buy_price
             )
-    return jsonify({"EXCHANGE RATE": result})
+    return jsonify({'EXCHANGE RATE': result})
 
 
 def check_request(rq):
-    if not rq.json or "name" not in rq.json or "count" not in rq.json:
-        return jsonify({"ERROR": "Please write count and currency name"}), 404
-    name_currency = rq.json.get("name")
+    if not rq.json or 'name' not in rq.json or 'count' not in rq.json:
+        return jsonify({'ERROR': 'Please write count and currency name'}), 404
+    name_currency = rq.json.get('name')
     try:
         getcontext().prec = 5
-        count = Decimal(rq.json.get("count"))
+        count = Decimal(rq.json.get('count'))
         assert count >= 0
     except (ValueError, AssertionError):
-        return jsonify({"ERROR": "Count of currency must be a number above zero"}), 404
+        return jsonify({'ERROR': 'Count of currency must be a number above zero'}), 404
     return name_currency, count
 
 
@@ -115,16 +124,16 @@ def prepare_transaction(name_currency, count, identification):
             .first()
         )
         if users_currency is None or users_ye is None:
-            raise UserNotFound("User not found")
+            raise UserNotFound('User not found')
         return price_currency, price_transaction, users_ye, users_currency
 
 
 def create_json(user_ye, name_currency, update_user_currency):
     return jsonify(
         {
-            "DO TRANSACTION": {
-                "YE NOW": "{}".format(user_ye),
-                "{0} NOW".format(name_currency): "{0}".format(update_user_currency),
+            'DO TRANSACTION': {
+                'YE NOW': '{}'.format(user_ye),
+                '{0} NOW'.format(name_currency): '{0}'.format(update_user_currency),
             }
         }
     )
@@ -160,9 +169,9 @@ def buy_currency(identification: str):
                 str(update_user_currency),
             )
             if user_ye is None:
-                raise UserNotFound("User not found")
+                raise UserNotFound('User not found')
             return create_json(user_ye, name_currency, update_user_currency)
-    return jsonify({"ERROR": "Not enough ye for this transaction"})
+    return jsonify({'ERROR': 'Not enough ye for this transaction'})
 
 
 @server.route('/market/api/v1.0/<identification>/sold', methods=['POST'])
@@ -191,4 +200,41 @@ def sold_currency(identification: str):
                 str(update_user_currency),
             )
             return create_json(user_ye, name_currency, update_user_currency)
-    return jsonify({"ERROR": "Not enough currency for this transaction"})
+    return jsonify({'ERROR': 'Not enough currency for this transaction'})
+
+
+@server.route('/market/api/v1.0/<identification>/add', methods=['POST'])
+def add_currency(identification: str):
+    # изменить портфель валют
+    if (
+        not request.json
+        or 'name' not in request.json
+        or 'sold_price' not in request.json
+        or 'buy_price' not in request.json
+    ):
+        return (
+            jsonify({'ERROR': 'Please write currency name, sold price and buy price'}),
+            404,
+        )
+    name_currency = request.json.get('name')
+    try:
+        getcontext().prec = 5
+        sold_price = Decimal(request.json.get('sold_price'))
+        buy_price = Decimal(request.json.get('buy_price'))
+        assert sold_price, buy_price >= 0
+    except (ValueError, AssertionError):
+        return jsonify({'ERROR': 'Sold price and buy price must be above zero'}), 404
+    with create_session() as session:
+        session.add(ExchangeRate(name_currency, str(sold_price), str(buy_price)))
+    return jsonify(
+        {
+            'ADD CURRENCY': {
+                'name': name_currency,
+                'sold_price': str(sold_price),
+                'buy_price': str(buy_price),
+            }
+        }
+    )
+
+
+

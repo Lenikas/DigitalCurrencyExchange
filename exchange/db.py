@@ -57,7 +57,7 @@ class UserCurrency(Base):
 
 
 class ExchangeRate(Base):
-    __tablename__ = "exchange_rate"
+    __tablename__ = 'exchange_rate'
 
     id = sa.Column(sa.Integer, primary_key=True, nullable=False)
     name = sa.Column(sa.String)
