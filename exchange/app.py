@@ -21,7 +21,7 @@ def handle_not_found_currency(error: str) -> Any:
     return jsonify({'ERROR': '{0}'.format(error)}), 404
 
 
-def create_market():
+def create_market() -> None:
     lst = ['btc', 'eth', 'xpr', 'trx', 'ltc']
     price = 10
     with create_session() as session:
