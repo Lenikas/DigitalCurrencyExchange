@@ -29,5 +29,5 @@ format:
 ci:	lint test
 
 up :
-	export FLASK_APP=start.py; flask run
+	python start.py
 
