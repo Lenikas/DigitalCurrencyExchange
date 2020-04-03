@@ -27,3 +27,7 @@ format:
 	$(VENV)/bin/unify --in-place --recursive $(ALL)
 
 ci:	lint test
+
+up :
+	python start.py
+

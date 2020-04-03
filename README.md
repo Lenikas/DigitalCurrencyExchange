@@ -1,7 +1,8 @@
 # Exchange
 
 ### Description:
-    ...
+    Апи биржи криптовалют.
+    Сагалов Леонид.
     
 ### Create venv:
     make venv
